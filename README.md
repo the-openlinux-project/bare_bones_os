@@ -1,5 +1,82 @@
 # Custom OS
 
+## Setting up environment
+
+### Preparation
+
+Download Binutils and GCC of any version(Latest version is recommanded).
+
+Export The following,
+
+`export PREFIX="$HOME/opt/cross"`
+
+`export TARGET=i686-elf`
+
+`export PATH="$PREFIX/bin:$PATH"`
+
+### Binutils
+
+Build binutils
+
+`cd $HOME/src`
+
+`mkdir build-binutils`
+
+`cd build-binutils`
+
+`../binutils-x.y.z/configure --target=$TARGET --prefix="$PREFIX" --with-sysroot --disable-nls --disable-werror`
+
+`make`
+
+`make install`
+
+This compiles the binutils (assembler, disassembler, and various other useful stuff), runnable on your system but handling code in the format specified by $TARGET.
+
+--disable-nls tells binutils not to include native language support. This is basically optional, but reduces dependencies and compile time. It will also result in English-language diagnostics, which the people on the Forum understand when you ask your questions. ;-)
+
+--with-sysroot tells binutils to enable sysroot support in the cross-compiler by pointing it to a default empty directory. By default, the linker refuses to use sysroots for no good technical reason, while gcc is able to handle both cases at runtime. This will be useful later on.
+
+### GCC
+
+Build GCC
+
+`cd $HOME/src`
+
+##### The $PREFIX/bin dir _must_ be in the PATH. We did that above.
+`which -- $TARGET-as || echo $TARGET-as is not in the PATH`
+
+`mkdir build-gcc`
+
+`cd build-gcc`
+
+`../gcc-x.y.z/configure --target=$TARGET --prefix="$PREFIX" --disable-nls --enable-languages=c,c++ --without-headers`
+
+`make all-gcc`
+
+`make all-target-libgcc`
+
+`make install-gcc`
+
+`make install-target-libgcc`
+
+We build libgcc, a low-level support library that the compiler expects available at compile time. Linking against libgcc provides integer, floating point, decimal, stack unwinding (useful for exception handling) and other support functions. Note how we are not simply running make && make install as that would build way too much, not all components of gcc are ready to target your unfinished operating system.
+
+--disable-nls is the same as for binutils above.
+
+--without-headers tells GCC not to rely on any C library (standard or runtime) being present for the target.
+
+--enable-languages tells GCC not to compile all the other language frontends it supports, but only C (and optionally C++).
+
+It will take a while to build your cross-compiler.
+
+If you are building a cross compiler for x86-64, you may want to consider building Libgcc without the "red zone": Libgcc_without_red_zone
+
+### Using the new Compiler
+
+`$HOME/opt/cross/bin/$TARGET-gcc --version`
+
+`export PATH="$HOME/opt/cross/bin:$PATH"`
+
 ## Compilation
 
 At First, compile boot.s
@@ -79,7 +156,7 @@ In case the terminal is filled up, it will just go back to the top of the screen
 Use the existing terminal driver to render some pretty stuff in all the glorious 16 colors you have available. Note that only 8 colors may be available for the background color, as the uppermost bit in the entries by default means something other than background color. You'll need a real VGA driver to fix this.
 
 ### Calling Global Constructors
-Main article: Calling Global Constructors
+Main article: [Calling Global Constructors](https://wiki.osdev.org/Calling_Global_Constructors)
 This tutorial showed a small example of how to create a minimal environment for C and C++ kernels. Unfortunately, you don't have everything set up yet. For instance, C++ with global objects will not have their constructors called because you never do it. The compiler uses a special mechanism for performing tasks at program initialization time through the crt*.o objects, which may be valuable even for C programmers. If you combine the crt*.o files correctly, you will create an _init function that invokes all the program initialization tasks. Your boot.o object file can then invoke _init before calling kernel_main.
 
 ## Links
